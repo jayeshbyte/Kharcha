@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kharcha – money manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F3FF;--sf:#fff;--tx:#1B1840;--mu:#6C689A;--ac:#E8890C;--ln:#E4E0FA;--ok:#12A37F;--bad:#E5484D;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13112A;--sf:#1E1B3F;--tx:#F1EFFF;--mu:#A19DCF;--ac:#FFB547;--ln:#2E2A5C;--ok:#3DDBA9;--bad:#FF7A80}}
+:root[data-theme="dark"]{--bg:#13112A;--sf:#1E1B3F;--tx:#F1EFFF;--mu:#A19DCF;--ac:#FFB547;--ln:#2E2A5C;--ok:#3DDBA9;--bad:#FF7A80}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 'Instrument Sans',system-ui,sans-serif;padding-bottom:96px}
+h1,h2,.big{font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:-.02em}
+h2{font-size:18px;margin-bottom:4px}
+.w{max-width:560px;margin:0 auto;padding:18px 16px}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:22px;padding:16px;margin-bottom:14px}
+.mu{color:var(--mu);font-size:13px}
+.btn{background:var(--ac);color:#1b1000;border:0;border-radius:14px;padding:10px 16px;font:600 14px 'Instrument Sans',system-ui,sans-serif;cursor:pointer;transition:transform .15s}
+.btn:active{transform:scale(.95)}.btn.g{background:transparent;border:1px solid var(--ln);color:var(--tx)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+input,select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--ln);background:var(--bg);color:var(--tx);font:inherit;margin:4px 0 10px}
+label{font-size:13px;color:var(--mu)}
+.r{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
+.r:first-child{border-top:0}.r>div{flex:1;min-width:0}
+.pos{color:var(--ok)}.neg{color:var(--bad)}
+.dn{display:flex;align-items:center;gap:16px}
+circle{transition:stroke-dasharray 1.2s cubic-bezier(.2,.8,.2,1)}
+.bar{height:8px;border-radius:8px;background:var(--ln);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ac);border-radius:8px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal b{font-size:11px;color:var(--mu);font-weight:500}
+.d{aspect-ratio:1;border:0;background:none;color:var(--tx);border-radius:12px;font:500 14px 'Instrument Sans',system-ui,sans-serif;position:relative;cursor:pointer;transition:background .2s}
+.d.t{border:1.5px solid var(--ac)}.d.s{background:var(--ac);color:#1b1000}
+.d u{position:absolute;bottom:4px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--bad)}
+.d.s u{background:#1b1000}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--sf);border-top:1px solid var(--ln);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));z-index:20}
+nav button{flex:1;background:none;border:0;color:var(--mu);display:flex;flex-direction:column;align-items:center;gap:2px;font:500 11px 'Instrument Sans',system-ui,sans-serif;cursor:pointer}
+nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+nav .on{color:var(--ac)}nav .on svg{transform:translateY(-3px) scale(1.1)}
+#sh{position:fixed;inset:0;background:rgba(10,8,30,.55);display:none;align-items:flex-end;z-index:30}
+#sh.o{display:flex}
+#sh>div{background:var(--sf);width:100%;max-width:560px;margin:0 auto;border-radius:24px 24px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));animation:up .25s ease;max-height:90vh;overflow:auto}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body>
+<main class="w" id="app"></main>
+<nav id="nv"></nav>
+<div id="sh" onclick="if(event.target==this)cl()"></div>
+<script>
+const $=s=>document.querySelector(s),pad=n=>String(n).padStart(2,'0'),R=n=>'₹'+Math.round(n).toLocaleString('en-IN'),uid=()=>Math.random().toString(36).slice(2,8);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const CAT={Rent:'#FF6B8A',Food:'#FFB547',Petrol:'#4DD6C1',Bills:'#8B7BFF',Fun:'#5BC0FF',Other:'#9F9BCB'};
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fd=s=>{const p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0].slice(2)};
+const T=new Date(),TS=iso(T);
+let S;try{S=JSON.parse(localStorage.getItem('kh3'))}catch(e){}
+if(!S)S={name:'Tony',rec:[{id:'r1',title:'Rent',amt:2000,day:1,cat:'Rent'},{id:'r2',title:'Mess fees',amt:2700,day:1,cat:'Food'}],exp:[{id:'e1',title:'Bill',amt:100,date:'2026-12-10',cat:'Bills'}],paid:{},acc:[{id:'a1',name:'Savings',bal:0,h:[]},{id:'a2',name:'Expenses',bal:0,h:[]},{id:'a3',name:'Bike petrol',bal:0,h:[]}],goals:[{id:'g1',title:'Emergency fund',target:2000,saved:0,done:false,h:[]}]};
+const save=()=>{try{localStorage.setItem('kh3',JSON.stringify(S))}catch(e){}};
+let v='home',cy=T.getFullYear(),cm=T.getMonth(),sd=TS,DAY=[];
+const tot=()=>S.acc.reduce((a,c)=>a+c.bal,0);
+function items(y,m){const L=S.exp.filter(e=>e.date.startsWith(y+'-'+pad(m+1))).map(e=>({...e}));
+S.rec.forEach(r=>L.push({id:r.id,rec:1,title:r.title,amt:r.amt,cat:r.cat,date:`${y}-${pad(m+1)}-${pad(Math.min(r.day,new Date(y,m+1,0).getDate()))}`}));
+return L.sort((a,b)=>a.date.localeCompare(b.date))}
+function donut(list){const by={};list.forEach(i=>by[i.cat]=(by[i.cat]||0)+i.amt);const t=Object.values(by).reduce((a,b)=>a+b,0),C=2*Math.PI*52;let acc=0,s='',lg='';
+Object.entries(by).sort((a,b)=>b[1]-a[1]).forEach(([k,x])=>{const l=x/t*C;s+=`<circle cx="70" cy="70" r="52" fill="none" stroke="${CAT[k]}" stroke-width="16" style="stroke-dasharray:0 ${C}" data-d="${Math.max(l-2,0)} ${C}" stroke-dashoffset="${-acc}"/>`;acc+=l;
+lg+=`<div class="r" style="padding:5px 0;border:0"><span style="width:10px;height:10px;border-radius:50%;background:${CAT[k]};flex:none"></span><div>${k}</div><b>${Math.round(x/t*100)}%</b></div>`});
+return t?`<div class="dn"><svg viewBox="0 0 140 140" width="140" height="140" style="transform:rotate(-90deg);flex:none">${s}</svg><div style="flex:1">${lg}</div></div>`:'<p class="mu">No bills this month yet. Add one in Expenses.</p>'}
+function home(){const L=items(T.getFullYear(),T.getMonth()),plan=L.reduce((a,b)=>a+b.amt,0),
+nx=L.concat(items(T.getMonth()==11?T.getFullYear()+1:T.getFullYear(),(T.getMonth()+1)%12)).filter(x=>x.date>=TS&&!S.paid[x.id+'@'+x.date]).slice(0,3),
+hist=S.goals.flatMap(g=>g.h.map(h=>({...h,t:g.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,6);
+return `<h1 style="font-size:26px">Hi ${esc(S.name)}</h1><p class="mu" style="margin-bottom:14px">Today is ${fd(TS)}</p>
+<div class="card"><div class="mu">Total across all balances</div><div class="big" data-n="${tot()}" style="font-size:54px;font-weight:800;line-height:1.1;color:${tot()<0?'var(--bad)':'var(--ok)'}">₹0</div>
+<div class="mu" style="margin:16px 0 10px">Going out this month: <b class="neg">${R(plan)}</b></div>${donut(L)}</div>
+<div class="card"><h2>Next to pay</h2>${nx.length?nx.map(x=>`<div class="r"><div><b>${esc(x.title)}</b><div class="mu">${fd(x.date)}</div></div><b class="neg">${R(x.amt)}</b></div>`).join(''):'<p class="mu">Nothing due. Nice.</p>'}</div>
+<div class="card"><div class="r" style="border:0;padding:0"><div><h2>Savings goals</h2></div><button class="btn" onclick="gNew()">New goal</button></div>
+${S.goals.length?S.goals.map(g=>{const p=Math.min(100,g.saved/g.target*100);return `<div style="padding:12px 0;border-top:1px solid var(--ln);margin-top:10px"><div class="r" style="border:0;padding:0"><div><b>${esc(g.title)}</b><div class="mu">${R(g.saved)} of ${R(g.target)}</div></div><button class="btn g" onclick="gAdd('${g.id}')">Add</button><button class="btn ${g.done?'':'g'}" onclick="gDone('${g.id}')" aria-label="Mark goal achieved">✓</button></div><div class="bar" style="margin-top:8px"><i data-w="${p}" style="width:0"></i></div>${g.done?'<div class="pos" style="font-size:13px;margin-top:6px">Goal achieved</div>':''}</div>`}).join(''):'<p class="mu" style="margin-top:8px">Set a goal like “New phone ₹8000” and track it here.</p>'}</div>
+<div class="card"><h2>Saving history</h2>${hist.length?hist.map(h=>`<div class="r"><div>${esc(h.t)}<div class="mu">${fd(h.d)}</div></div><b class="pos">+${R(h.a)}</b></div>`).join(''):'<p class="mu">Money you add to goals shows up here.</p>'}</div>`}
+function exps(){const L=items(cy,cm),f=new Date(cy,cm,1).getDay(),n=new Date(cy,cm+1,0).getDate();
+let g=['S','M','T','W','T','F','S'].map(x=>`<b>${x}</b>`).join('')+'<i></i>'.repeat(f);
+for(let d=1;d<=n;d++){const ds=`${cy}-${pad(cm+1)}-${pad(d)}`;g+=`<button class="d${ds==TS?' t':''}${ds==sd?' s':''}" onclick="sel('${ds}')">${d}${L.some(x=>x.date==ds)?'<u></u>':''}</button>`}
+DAY=L.filter(x=>x.date==sd);const sum=L.reduce((a,b)=>a+b.amt,0);
+return `<h1 style="font-size:26px">Money calendar</h1>
+<div class="card" style="margin-top:14px"><div class="r" style="border:0;padding:0 0 10px"><button class="btn g" onclick="mv(-1)" aria-label="Previous month">‹</button><div style="text-align:center"><b>${new Date(cy,cm).toLocaleString('en-IN',{month:'long',year:'numeric'})}</b><div class="neg" style="font-size:13px">${R(sum)} planned</div></div><button class="btn g" onclick="mv(1)" aria-label="Next month">›</button></div><div class="cal">${g}</div></div>
+<div class="card"><div class="r" style="border:0;padding:0"><div><h2>${fd(sd)}</h2></div><button class="btn" onclick="expSheet()">Add expense</button></div>
+${DAY.length?DAY.map((x,i)=>`<div class="r"><input type="checkbox" style="width:22px;margin:0" aria-label="Paid" ${S.paid[x.id+'@'+x.date]?'checked':''} onchange="pay(${i})"><div><b>${esc(x.title)}</b><div class="mu">${x.cat}${x.rec?', every month':''}</div></div><b class="neg">${R(x.amt)}</b><button class="btn g" style="padding:6px 10px" onclick="del(${i})" aria-label="Delete">✕</button></div>`).join(''):'<p class="mu" style="margin-top:8px">No bills on this day. Red dots on the calendar mark days with bills.</p>'}</div>`}
+function bals(){return `<h1 style="font-size:26px">Balances</h1><p class="mu" style="margin-bottom:14px">Total <b class="pos">${R(tot())}</b></p>
+${S.acc.map(a=>`<div class="card"><div class="r" style="border:0;padding:0"><div><div class="mu">${esc(a.name)}</div><div class="big" data-n="${a.bal}" style="font-size:32px;font-weight:800;color:${a.bal<0?'var(--bad)':'var(--ok)'}">₹0</div></div><button class="btn" onclick="txn('${a.id}')">Update</button></div>
+${a.h.slice(0,4).map(h=>`<div class="r"><div>${esc(h.n||'Update')}<div class="mu">${fd(h.d)}</div></div><b class="${h.a<0?'neg':'pos'}">${h.a<0?'-':'+'}${R(Math.abs(h.a))}</b></div>`).join('')}</div>`).join('')}
+<button class="btn g" style="width:100%;margin-bottom:14px" onclick="accNew()">Add new balance type</button>
+<div class="card"><h2>Analyze a statement</h2><p class="mu" style="margin-bottom:10px">Upload a bank CSV or PDF to see where your money went.</p><input type="file" id="fl" accept=".csv,.pdf,text/csv,application/pdf"><button class="btn" style="width:100%" onclick="analyze()">Analysis</button><div id="res" style="margin-top:12px"></div></div>`}
+function prof(){const gd=S.goals.filter(g=>g.done).length,pd=Object.keys(S.paid).length;
+return `<h1 style="font-size:26px">Profile</h1><div class="card" style="margin-top:14px"><label>Your name</label><input value="${esc(S.name)}" onchange="S.name=this.value;save()">
+<div class="r"><div>Goals achieved</div><b>${gd}</b></div><div class="r"><div>Bills paid</div><b>${pd}</b></div><div class="r"><div>Saved in goals</div><b class="pos">${R(S.goals.reduce((a,g)=>a+g.saved,0))}</b></div></div>
+<button class="btn g" style="width:100%" onclick="sh(\`<h2>Reset everything?</h2><p class='mu' style='margin:6px 0 14px'>This deletes all balances, bills and goals on this device.</p><button class='btn' style='width:100%' onclick='wipe()'>Reset all data</button>\`)">Reset all data</button>`}
+const P={home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',exps:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>',bals:'<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2z"/><circle cx="16.5" cy="14.5" r="1.2"/>',prof:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'};
+const N=[['home','Home'],['exps','Expenses'],['bals','Balances'],['prof','Profile']],V={home,exps,bals,prof};
+function render(){$('#app').innerHTML=V[v]();$('#nv').innerHTML=N.map(([k,t])=>`<button class="${k==v?'on':''}" onclick="go('${k}')"><svg viewBox="0 0 24 24">${P[k]}</svg>${t}</button>`).join('');
+setTimeout(()=>{document.querySelectorAll('circle[data-d]').forEach(c=>c.style.strokeDasharray=c.dataset.d);document.querySelectorAll('[data-w]').forEach(e=>e.style.width=e.dataset.w+'%');document.querySelectorAll('[data-n]').forEach(el=>{const to=+el.dataset.n,t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/800);el.textContent=(to<0?'-':'')+R(Math.abs(to)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)})(t0)})},60)}
+function go(k){v=k;render();scrollTo(0,0)}
+const sh=h=>{$('#sh').innerHTML='<div>'+h+'</div>';$('#sh').classList.add('o')},cl=()=>$('#sh').classList.remove('o');
+const val=id=>$('#'+id).value.trim(),er=m=>{$('#er').textContent=m};
+function sel(d){sd=d;render()}
+function mv(n){cm+=n;if(cm<0){cm=11;cy--}if(cm>11){cm=0;cy++}sd=`${cy}-${pad(cm+1)}-01`;render()}
+function expSheet(){sh(`<h2>Add expense</h2><label>What for</label><input id="t" placeholder="Mess fees"><label>Amount (₹)</label><input id="a" type="number" inputmode="numeric"><label>Date</label><input id="d" type="date" value="${sd}"><label>Type</label><select id="c">${Object.keys(CAT).map(k=>`<option>${k}</option>`).join('')}</select><label style="display:flex;gap:8px;align-items:center"><input id="rp" type="checkbox" style="width:auto;margin:0">Repeats every month</label><p id="er" class="neg"></p><button class="btn" style="width:100%;margin-top:8px" onclick="addExp()">Save expense</button>`)}
+function addExp(){const t=val('t'),a=+val('a'),d=val('d'),c=val('c');if(!t||!(a>0)||!d)return er('Add a name, an amount and a date.');
+if($('#rp').checked)S.rec.push({id:uid(),title:t,amt:a,day:+d.slice(8),cat:c});else S.exp.push({id:uid(),title:t,amt:a,date:d,cat:c});
+sd=d;cy=+d.slice(0,4);cm=+d.slice(5,7)-1;save();cl();render()}
+function pay(i){const x=DAY[i],k=x.id+'@'+x.date,ac=S.acc.find(a=>a.name=='Expenses')||S.acc[0];
+if(S.paid[k]){delete S.paid[k];if(ac){ac.bal+=x.amt;ac.h.unshift({d:TS,a:x.amt,n:'Undo: '+x.title})}}else{S.paid[k]=1;if(ac){ac.bal-=x.amt;ac.h.unshift({d:TS,a:-x.amt,n:x.title})}}save();render()}
+function del(i){const x=DAY[i];if(x.rec)S.rec=S.rec.filter(r=>r.id!=x.id);else S.exp=S.exp.filter(e=>e.id!=x.id);save();render()}
+function gNew(){sh(`<h2>New goal</h2><label>Goal</label><input id="t" placeholder="New phone"><label>Target (₹)</label><input id="a" type="number" inputmode="numeric"><p id="er" class="neg"></p><button class="btn" style="width:100%" onclick="gMake()">Save goal</button>`)}
+function gMake(){const t=val('t'),a=+val('a');if(!t||!(a>0))return er('Add a goal name and a target amount.');S.goals.push({id:uid(),title:t,target:a,saved:0,done:false,h:[]});save();cl();render()}
+function gAdd(id){sh(`<h2>Add to goal</h2><label>Amount (₹)</label><input id="a" type="number" inputmode="numeric"><p id="er" class="neg"></p><button class="btn" style="width:100%" onclick="gSave('${id}')">Save</button>`)}
+function gSave(id){const a=+val('a');if(!(a>0))return er('Enter an amount above 0.');const g=S.goals.find(x=>x.id==id);g.saved+=a;g.h.unshift({d:TS,a});if(g.saved>=g.target)g.done=true;save();cl();render()}
+function gDone(id){const g=S.goals.find(x=>x.id==id);g.done=!g.done;save();render()}
+function txn(id){const a=S.acc.find(x=>x.id==id);sh(`<h2>${esc(a.name)}</h2><label>Action</label><select id="s"><option value="1">Add money</option><option value="-1">Spend money</option></select><label>Amount (₹)</label><input id="a" type="number" inputmode="numeric"><label>Note</label><input id="n" placeholder="Petrol"><label>Date</label><input id="d" type="date" value="${TS}"><p id="er" class="neg"></p><button class="btn" style="width:100%" onclick="txnSave('${id}')">Save</button>`)}
+function txnSave(id){const a=+val('a'),s=+val('s'),d=val('d');if(!(a>0)||!d)return er('Enter an amount and a date.');const ac=S.acc.find(x=>x.id==id);ac.bal+=s*a;ac.h.unshift({d,a:s*a,n:val('n')});save();cl();render()}
+function accNew(){sh(`<h2>New balance type</h2><label>Name</label><input id="t" placeholder="Bike petrol"><label>Balance now (₹)</label><input id="a" type="number" inputmode="numeric" value="0"><p id="er" class="neg"></p><button class="btn" style="width:100%" onclick="accMake()">Add balance</button>`)}
+function accMake(){const t=val('t'),a=+val('a');if(!t||isNaN(a))return er('Add a name and a starting balance.');S.acc.push({id:uid(),name:t,bal:a,h:[]});save();cl();render()}
+function wipe(){try{localStorage.removeItem('kh3')}catch(e){}location.reload()}
+const cat=d=>/mess|food|swiggy|zomato|cafe|canteen|restaurant/i.test(d)?'Food':/rent/i.test(d)?'Rent':/petrol|fuel|bpcl|hpcl|indian ?oil/i.test(d)?'Petrol':/bill|electric|recharge|jio|airtel|wifi/i.test(d)?'Bills':/movie|netflix|game|spotify|bookmyshow/i.test(d)?'Fun':'Other';
+const num=c=>{const z=c.replace(/[₹\s]|Rs\.?|Dr|Cr/gi,'');return /^-?[\d,]+(\.\d+)?$/.test(z)?parseFloat(z.replace(/,/g,'')):NaN};
+async function pdfRows(f){if(!window.pdfjsLib)await new Promise((a,b)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=a;s.onerror=b;document.head.append(s)});
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,rows=[];
+for(let p=1;p<=d.numPages;p++){const c=await(await d.getPage(p)).getTextContent(),m={};c.items.forEach(i=>{const y=Math.round(i.transform[5]);(m[y]=m[y]||[]).push(i)});Object.keys(m).sort((a,b)=>b-a).forEach(y=>rows.push(m[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(i=>i.str.trim()).filter(Boolean)))}return rows}
+function crunch(rows){const h=(rows[0]||[]).map(c=>c.toLowerCase()),di=h.findIndex(c=>/debit|withdraw|amount/.test(c)),ci=h.findIndex(c=>/credit|deposit/.test(c)),hd=di>=0,sp=[];let inc=0;
+rows.slice(hd?1:0).forEach(r=>{let a=NaN;if(hd){a=num(r[di]||'');if(ci>=0){const c=num(r[ci]||'');if(c>0)inc+=c}}else{const ns=r.map(num).filter(x=>!isNaN(x)&&x!=0);a=ns.length>1?ns[ns.length-2]:ns[0]}
+const d=r.filter(c=>isNaN(num(c))&&c.length>2&&!/^\d{1,4}[-\/.]/.test(c)).sort((x,y)=>y.length-x.length)[0]||'Other';if(!isNaN(a)&&a!=0)sp.push({d,a:Math.abs(a)})});
+return{sp,inc}}
+async function analyze(){const f=$('#fl').files[0],o=$('#res');if(!f)return o.innerHTML='<p class="mu">Choose a CSV or PDF file first.</p>';o.innerHTML='<p class="mu">Reading your file…</p>';
+try{const rows=/\.pdf$/i.test(f.name)?await pdfRows(f):(await f.text()).split(/\r?\n/).filter(Boolean).map(l=>l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.replace(/^"|"$/g,'').trim()));
+const{sp,inc}=crunch(rows);if(!sp.length)return o.innerHTML='<p class="neg">No spending rows found. Check that the file has an amount column.</p>';
+const tt=sp.reduce((a,b)=>a+b.a,0),by={};sp.forEach(x=>{const k=cat(x.d);by[k]=(by[k]||0)+x.a});const bs=Object.entries(by).sort((a,b)=>b[1]-a[1]),top=sp.slice().sort((a,b)=>b.a-a.a).slice(0,3);
+o.innerHTML=`<div class="r" style="border:0"><div>Total spent<div class="mu">${sp.length} transactions${inc?', '+R(inc)+' received':''}</div></div><b class="big neg" style="font-size:24px">${R(tt)}</b></div>
+${bs.map(([k,x])=>`<div style="margin:8px 0"><div class="r" style="border:0;padding:0"><div>${k}</div><b>${Math.round(x/tt*100)}%</b><span class="mu">${R(x)}</span></div><div class="bar"><i style="width:${x/tt*100}%;background:${CAT[k]}"></i></div></div>`).join('')}
+<h2 style="margin-top:14px">Biggest spends</h2>${top.map(x=>`<div class="r"><div>${esc(x.d)}</div><b class="neg">${R(x.a)}</b></div>`).join('')}
+<p style="margin-top:10px">${bs[0][0]} takes ${Math.round(bs[0][1]/tt*100)}% of your spending. Cutting it by a quarter would save ${R(bs[0][1]*.25)}.</p>`}
+catch(e){o.innerHTML='<p class="neg">Could not read this file. Try the CSV version from your bank app.</p>'}}
+render();
+</script></body></html>
