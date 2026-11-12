@@ -57,7 +57,7 @@ const T=new Date(),TS=iso(T);
 let S;try{S=JSON.parse(localStorage.getItem('kh3'))}catch(e){}
 if(!S)S={name:'Tony',rec:[{id:'r1',title:'Rent',amt:2000,day:1,cat:'Rent'},{id:'r2',title:'Mess fees',amt:2700,day:1,cat:'Food'}],exp:[{id:'e1',title:'Bill',amt:100,date:'2026-12-10',cat:'Bills'}],paid:{},acc:[{id:'a1',name:'Savings',bal:0,h:[]},{id:'a2',name:'Expenses',bal:0,h:[]},{id:'a3',name:'Bike petrol',bal:0,h:[]}],goals:[{id:'g1',title:'Emergency fund',target:2000,saved:0,done:false,h:[]}]};
 const save=()=>{try{localStorage.setItem('kh3',JSON.stringify(S))}catch(e){}};
-let v='home',cy=T.getFullYear(),cm=T.getMonth(),sd=TS,DAY=[];
+let v='home',cy=T.getFullYear(),cm=T.getMonth(),sd=TS,DAY=[],ALL={};function more(k){ALL[k]=!ALL[k];render()}
 const tot=()=>S.acc.reduce((a,c)=>a+c.bal,0);
 function items(y,m){const L=S.exp.filter(e=>e.date.startsWith(y+'-'+pad(m+1))).map(e=>({...e}));
 S.rec.forEach(r=>L.push({id:r.id,rec:1,title:r.title,amt:r.amt,cat:r.cat,date:`${y}-${pad(m+1)}-${pad(Math.min(r.day,new Date(y,m+1,0).getDate()))}`}));
@@ -68,14 +68,14 @@ lg+=`<div class="r" style="padding:5px 0;border:0"><span style="width:10px;heigh
 return t?`<div class="dn"><svg viewBox="0 0 140 140" width="140" height="140" style="transform:rotate(-90deg);flex:none">${s}</svg><div style="flex:1">${lg}</div></div>`:'<p class="mu">No bills this month yet. Add one in Expenses.</p>'}
 function home(){const L=items(T.getFullYear(),T.getMonth()),plan=L.reduce((a,b)=>a+b.amt,0),
 nx=L.concat(items(T.getMonth()==11?T.getFullYear()+1:T.getFullYear(),(T.getMonth()+1)%12)).filter(x=>x.date>=TS&&!S.paid[x.id+'@'+x.date]).slice(0,3),
-hist=S.goals.flatMap(g=>g.h.map(h=>({...h,t:g.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,6);
+hist=S.goals.flatMap(g=>g.h.map(h=>({...h,t:g.title}))).sort((a,b)=>b.d.localeCompare(a.d));
 return `<h1 style="font-size:26px">Hi ${esc(S.name)}</h1><p class="mu" style="margin-bottom:14px">Today is ${fd(TS)}</p>
 <div class="card"><div class="mu">Total across all balances</div><div class="big" data-n="${tot()}" style="font-size:54px;font-weight:800;line-height:1.1;color:${tot()<0?'var(--bad)':'var(--ok)'}">₹0</div>
 <div class="mu" style="margin:16px 0 10px">Going out this month: <b class="neg">${R(plan)}</b></div>${donut(L)}</div>
 <div class="card"><h2>Next to pay</h2>${nx.length?nx.map(x=>`<div class="r"><div><b>${esc(x.title)}</b><div class="mu">${fd(x.date)}</div></div><b class="neg">${R(x.amt)}</b></div>`).join(''):'<p class="mu">Nothing due. Nice.</p>'}</div>
 <div class="card"><div class="r" style="border:0;padding:0"><div><h2>Savings goals</h2></div><button class="btn" onclick="gNew()">New goal</button></div>
 ${S.goals.length?S.goals.map(g=>{const p=Math.min(100,g.saved/g.target*100);return `<div style="padding:12px 0;border-top:1px solid var(--ln);margin-top:10px"><div class="r" style="border:0;padding:0"><div><b>${esc(g.title)}</b><div class="mu">${R(g.saved)} of ${R(g.target)}</div></div><button class="btn g" onclick="gAdd('${g.id}')">Add</button><button class="btn ${g.done?'':'g'}" onclick="gDone('${g.id}')" aria-label="Mark goal achieved">✓</button></div><div class="bar" style="margin-top:8px"><i data-w="${p}" style="width:0"></i></div>${g.done?'<div class="pos" style="font-size:13px;margin-top:6px">Goal achieved</div>':''}</div>`}).join(''):'<p class="mu" style="margin-top:8px">Set a goal like “New phone ₹8000” and track it here.</p>'}</div>
-<div class="card"><h2>Saving history</h2>${hist.length?hist.map(h=>`<div class="r"><div>${esc(h.t)}<div class="mu">${fd(h.d)}</div></div><b class="pos">+${R(h.a)}</b></div>`).join(''):'<p class="mu">Money you add to goals shows up here.</p>'}</div>`}
+<div class="card"><h2>Saving history</h2>${hist.length?hist.slice(0,ALL.sv?999:6).map(h=>`<div class="r"><div>${esc(h.t)}<div class="mu">${fd(h.d)}</div></div><b class="pos">+${R(h.a)}</b></div>`).join('')+(hist.length>6?`<button class="btn g" style="width:100%;margin-top:8px" onclick="more('sv')">${ALL.sv?'Show less':'See more ('+(hist.length-6)+')'}</button>`:''):'<p class="mu">Money you add to goals shows up here.</p>'}</div>`}
 function exps(){const L=items(cy,cm),f=new Date(cy,cm,1).getDay(),n=new Date(cy,cm+1,0).getDate();
 let g=['S','M','T','W','T','F','S'].map(x=>`<b>${x}</b>`).join('')+'<i></i>'.repeat(f);
 for(let d=1;d<=n;d++){const ds=`${cy}-${pad(cm+1)}-${pad(d)}`;g+=`<button class="d${ds==TS?' t':''}${ds==sd?' s':''}" onclick="sel('${ds}')">${d}${L.some(x=>x.date==ds)?'<u></u>':''}</button>`}
@@ -86,7 +86,7 @@ return `<h1 style="font-size:26px">Money calendar</h1>
 ${DAY.length?DAY.map((x,i)=>`<div class="r"><input type="checkbox" style="width:22px;margin:0" aria-label="Paid" ${S.paid[x.id+'@'+x.date]?'checked':''} onchange="pay(${i})"><div><b>${esc(x.title)}</b><div class="mu">${x.cat}${x.rec?', every month':''}</div></div><b class="neg">${R(x.amt)}</b><button class="btn g" style="padding:6px 10px" onclick="del(${i})" aria-label="Delete">✕</button></div>`).join(''):'<p class="mu" style="margin-top:8px">No bills on this day. Red dots on the calendar mark days with bills.</p>'}</div>`}
 function bals(){return `<h1 style="font-size:26px">Balances</h1><p class="mu" style="margin-bottom:14px">Total <b class="pos">${R(tot())}</b></p>
 ${S.acc.map(a=>`<div class="card"><div class="r" style="border:0;padding:0"><div><div class="mu">${esc(a.name)}</div><div class="big" data-n="${a.bal}" style="font-size:32px;font-weight:800;color:${a.bal<0?'var(--bad)':'var(--ok)'}">₹0</div></div><button class="btn" onclick="txn('${a.id}')">Update</button></div>
-${a.h.slice(0,4).map(h=>`<div class="r"><div>${esc(h.n||'Update')}<div class="mu">${fd(h.d)}</div></div><b class="${h.a<0?'neg':'pos'}">${h.a<0?'-':'+'}${R(Math.abs(h.a))}</b></div>`).join('')}</div>`).join('')}
+${a.h.slice(0,ALL[a.id]?999:4).map(h=>`<div class="r"><div>${esc(h.n||'Update')}<div class="mu">${fd(h.d)}</div></div><b class="${h.a<0?'neg':'pos'}">${h.a<0?'-':'+'}${R(Math.abs(h.a))}</b></div>`).join('')}${a.h.length>4?`<button class="btn g" style="width:100%;margin-top:8px" onclick="more('${a.id}')">${ALL[a.id]?'Show less':'See more ('+(a.h.length-4)+')'}</button>`:''}</div>`).join('')}
 <button class="btn g" style="width:100%;margin-bottom:14px" onclick="accNew()">Add new balance type</button>
 <div class="card"><h2>Analyze a statement</h2><p class="mu" style="margin-bottom:10px">Upload a bank CSV or PDF to see where your money went.</p><input type="file" id="fl" accept=".csv,.pdf,text/csv,application/pdf"><button class="btn" style="width:100%" onclick="analyze()">Analysis</button><div id="res" style="margin-top:12px"></div></div>`}
 function prof(){const gd=S.goals.filter(g=>g.done).length,pd=Object.keys(S.paid).length;
